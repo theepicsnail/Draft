@@ -20,6 +20,7 @@ function dist(p1, p2){
 
 function Tool(){}
 Tool.prototype={
+    'selected':[], //Points being used by the tool/points to highlight 
     'up'  :function(e){},
     'down':function(e){},
     'move':function(e){},
@@ -109,12 +110,24 @@ Tool.prototype={
             strokeStyle = "rgb(128,128,255)";
             draft.objects.points.forEach(function(pt,idx,array){
                 beginPath();
-                if(draft.selected==idx)
+                var highlightPoint = false;
+                if(draft.activeTool)
+                {
+                    if(draft.activeTool.selected!=null)
+                    {
+                        var sel = draft.activeTool.selected;
+                        if(typeof(sel)=='number')
+                            highlightPoint = (sel == idx)
+                        else
+                            highlightPoint = (sel.indexOf(idx)!=-1)
+                    }
+                }
+                if(highlightPoint)
                     strokeStyle = "rgb(255,128,128)";
                 moveTo(pt.x-.5,pt.y);
                 lineTo(pt.x+.5,pt.y);
                 stroke();
-                if(draft.selected==idx)
+                if(highlightPoint)
                     strokeStyle = "rgb(128,128,255)";
             });
         }
