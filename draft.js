@@ -45,6 +45,8 @@ Tool.prototype={
     draft.objects={}; 
     draft.init = null; //actual declaration is after the init function.
     draft.showGrid = false;
+    draft.message = null; // Message to be pushed out next time output is sent.
+    draft.pushInterval = null;//interval handle
 
 
     function refresh(){
@@ -106,7 +108,6 @@ Tool.prototype={
             lineWidth = 10;
             strokeStyle = "rgb(128,128,255)";
             draft.objects.points.forEach(function(pt,idx,array){
-                console.log(idx+" :"+draft.selected);
                 beginPath();
                 if(draft.selected==idx)
                     strokeStyle = "rgb(255,128,128)";
@@ -178,8 +179,6 @@ Tool.prototype={
 
 //sock.send(JSON.stringify({'type':'path','path':draft.path}))
 
-    draft.message = null; // Message to be pushed out next time output is sent.
-    draft.pushInterval = null;//interval handle
 
 
 
@@ -349,18 +348,31 @@ Tool.prototype={
 
    
     // brush modules
-    draft.tools['Move Point'] = {
+    draft.tools['Point'] = {
         selected:null,
-
+        click:false,
         up:function(e){
             this.selected = null;
+            if(this.click){
+                var npoint = {'x':draft.x,'y':draft.y}
+                draft.objects.points.push(npoint);
+                draft.message = 
+                {
+                    'type':'push', 
+                    'object':'points', 
+                    'val':npoint
+                };
+            }
         },
         down:function(e){
             this.selected = select(draft);
+            this.click = true;
         },
         move:function(e){
+            this.click = false;
         },
         drag:function(e){
+            this.click = false;
             if(this.selected!=null){
                 draft.objects.points[this.selected].x=draft.x;
                 draft.objects.points[this.selected].y=draft.y;
@@ -376,7 +388,6 @@ Tool.prototype={
             }
         }    
     }
-    draft.activeTool = draft.tools['Move Point'];
+    draft.activeTool = draft.tools['Point'];
 })(this);
 
-//sock.send(JSON.stringify({'type':'path','path':draft.path}))

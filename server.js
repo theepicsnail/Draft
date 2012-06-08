@@ -53,12 +53,7 @@ sockjs_server.on('connection', function(socket) {
     sockets.push(socket);
     socket.write(JSON.stringify({'type':'sync','objects':objects,'users':sockets.length}));
     socket.on('data', function(message) {
-        var data = JSON.parse(message);
-        draft.path = []
-        
-        if (data.type == 'update'){
-            objects[data.object][data.id]=data.val
-
+        function pushUpdate(){
             for (var i in sockets){
                 if (sockets[i] == socket) continue;
                 console.log("Pushing message:"+count);
@@ -69,6 +64,18 @@ sockjs_server.on('connection', function(socket) {
                     ));
             }
         }
+
+        var data = JSON.parse(message);
+        console.log(message);
+        switch(data.type){
+        case 'update':
+            objects[data.object][data.id]=data.val
+        break;
+        case 'push':
+            objects[data.object].push(data.val)    
+        break;
+        }
+        pushUpdate();
         
     });
     socket.on('end', function() {
