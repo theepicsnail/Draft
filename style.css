@@ -87,10 +87,9 @@ header #tools .color{
 
 header #tools select {
   opacity:0.3;
-  position:absolute;
-  left:-90px;
-  top:7px;
 }
+
+
 
 header #tools input {
   opacity:0.4;

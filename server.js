@@ -48,28 +48,28 @@ objects.lines.push(Line(0,2));
 objects.circles.push(Circle(0,1));
 
 
-
+var count = 0;
 sockjs_server.on('connection', function(socket) {
     sockets.push(socket);
     socket.write(JSON.stringify({'type':'sync','objects':objects,'users':sockets.length}));
     socket.on('data', function(message) {
         var data = JSON.parse(message);
         draft.path = []
-        if (data.type == 'path'){
-            while(data.path.length > 0){
-                var item = data.path.pop()
-                draft.path.push(item);
-                console.log(draft.brushes);
-                console.log(item);
-                if (draft.path.length > 1){
-                    draft.brushes[item.b].draw(item)
-                }
-            };
+        
+        if (data.type == 'update'){
+            objects[data.object][data.id]=data.val
+
             for (var i in sockets){
                 if (sockets[i] == socket) continue;
-                sockets[i].write(message);
+                console.log("Pushing message:"+count);
+                count = count + 1;
+                sockets[i].write(
+                JSON.stringify(
+                    {'type':'sync','objects':objects,'users':sockets.length}
+                    ));
             }
         }
+        
     });
     socket.on('end', function() {
         var i = sockets.indexOf(socket)
