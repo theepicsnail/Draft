@@ -37,21 +37,7 @@ Tool.prototype={
 
 (function(root){
 
-    //set up namespace
-    var draft = typeof exports != 'undefined' ? exports : root.draft = {}
-    draft.tools = {};
-    draft.activeTool = null;//null or the tools name/key 
-    draft.x = 0;      //position of the current event relative to the canvas.
-    draft.y = 0;
-    draft.down=false; //mouse pressed
-    draft.objects={}; 
-    draft.init = null; //actual declaration is after the init function.
-    draft.showGrid = false;
-    draft.message = null; // Message to be pushed out next time output is sent.
-    draft.pushInterval = null;//interval handle
-
-
-    function refresh(){
+    function refresh(){//{{{
         // redraw all the objects on the canvas
         with(draft.context){
             with(draft.canvas){
@@ -129,11 +115,10 @@ Tool.prototype={
                     strokeStyle = "rgb(128,128,255)";
             });
         }
-    }
+    
+    }//}}}
 
-
-
-    function select(loc){
+    function select(loc){//{{{
         //select the point at loc
         var selected = null;
         draft.objects.points.forEach(function(p,idx){
@@ -143,11 +128,9 @@ Tool.prototype={
                 selected = idx;
         });
         return selected;
-    }
+    }//}}}
 
-
-
-    // UI events
+    //{{{ UI events
     function down(e){
         draft.down = true;
         setXY(e);
@@ -178,15 +161,9 @@ Tool.prototype={
         draft.activeTool.drag(e);
         refresh(); 
     }
-    // End UI events.
+    //}}} End UI events.
 
-
-
-
-
-
-    // connect to server, and re-connect if disconnected
-    function connect(){
+    function connect(){//{{{
         sock = new SockJS('http://'+document.domain+':'+location.port+'/sjs');
         sock.onopen = function() {
             console.log('connected');
@@ -207,6 +184,7 @@ Tool.prototype={
                 refresh(); 
             }
             if (data.type == 'stats'){
+                
             }
         };
         sock.onclose = function() {
@@ -214,23 +192,10 @@ Tool.prototype={
             setTimeout(function(){try{connect();}catch(e){}},1000);
             clearInterval(draft.pushInterval);
         };
-    }
+    }//}}}
 
-
-
-    //main initialization routine
-    function init(){
-
-        // set up brush select box
-        var select = document.getElementsByTagName('select')[0];
-        Object.keys(draft.tools).forEach(function(tool){
-            var option = new Option(tool,tool);
-            select.options[select.options.length] = option;
-        })
-        
-
-
-        // build canvas and set up events
+    function init(){//{{{
+        // Setup Canvas
         draft.canvas = document.getElementsByTagName('canvas')[0];
         draft.context = draft.canvas.getContext('2d');
         with(draft.context){
@@ -253,20 +218,17 @@ Tool.prototype={
                     e.preventDefault();
                     return false;
                 }
-            },0)
-            
+            },false);
         }
 
-
-
-        // set up toolbar events
+        // set up document
         with(document){
-            getElementById('color1').style.background = draft.color1;
-            getElementById('color2').style.background = draft.color2;
-            getElementById('color3').style.background = draft.color3;
-//            addEventListener("fullscreenchange", toggleaside, false);
-//            addEventListener("mozfullscreenchange", toggleaside, false);
-//            addEventListener("webkitfullscreenchange", toggleaside, false);
+            var select = document.getElementsByTagName('select')[0];
+            Object.keys(draft.tools).forEach(function(tool){
+                var option = new Option(tool,tool);
+                select.options[select.options.length] = option;
+            });
+
             getElementById('brushselect').addEventListener('change', function(e){
                 console.log("tool changed:");
                 console.log(e);
@@ -289,11 +251,6 @@ Tool.prototype={
                 }
                 refresh();
             });
-//            getElementById('save').addEventListener('click', function(e){
-//                e.preventDefault();
-//                save()
-//                return false;
-//            });
             getElementById('sizerange').addEventListener('change', function(e){
                 draft.w = e.target.value;
             });
@@ -328,97 +285,112 @@ Tool.prototype={
 
         // connect to server
         connect();
-    }
+    }//}}}
+   
+    function setupTools(){//{{{ Tools
+        draft.tools['Point'] = {
+            selected:null,
+            click:false,
+            up:function(e){
+                console.log("--- mouse up ---");
+                this.selected = null;
+                console.log(this.click);
+                if(this.click){
+                    console.log("Point added.");
+                    var npoint = {'x':draft.x,'y':draft.y}
+                    draft.objects.points.push(npoint);
+                    draft.message = 
+                    {
+                        'type':'push', 
+                        'object':'points', 
+                        'val':npoint
+                    };
+                }
+                this.click = false;
+            },
+            down:function(e){
+                this.selected = select(draft);
+                console.log("Down");
+                this.click = true;
+            },
+            move:function(e){
+                console.log("Move");
+                this.click = false;
+            },
+            drag:function(e){
+                console.log("Drag");
+                this.click = false;
+                if(this.selected!=null){
+                    draft.objects.points[this.selected].x=draft.x;
+                    draft.objects.points[this.selected].y=draft.y;
+                    refresh();
+                    draft.message = 
+                        {
+                            'type':'update', 
+                            'object':'points', 
+                            'id':this.selected, 
+                            'val':draft.objects.points[this.selected]
+                        };
+    //sock.send(JSON.stringify({'type':'update','objects':draft.objects}))
+                }
+            },    
+            reset:function(){
+                this.selected=null;
+                this.click = false;
+            }
+        }
+        draft.tools['Line'] = {
+            selected:[],
+            up:function(e){
+                var p = select(draft);
+                if(p == null) return;
+                if(this.selected.length==0)
+                {
+                    this.selected.push(p);
+                    return;
+                }
+                if(this.selected[0]==p){
+                    this.selected.length = 0;
+                    return;
+                }
+
+                var nline = {'p1':this.selected[0], 'p2':p}
+                draft.objects.lines.push(nline);
+                draft.message = {
+                    'type':'push',
+                    'object':'lines',
+                    'val':nline
+                }
+                this.selected[0]=p;
+            },
+            down:function(e){
+            },
+            move:function(e){
+            },
+            drag:function(e){
+            },   
+            reset:function(e){
+                this.selected.length=0;
+            }
+        }
+
+        draft.activeTool = draft.tools['Point'];
+    }//}}} End tools
+
+    //set up namespace
+    var draft = typeof exports != 'undefined' ? exports : root.draft = {}
+    draft.tools = {};
+    draft.activeTool = null;//null or the tools name/key 
+    draft.x = 0;      //position of the current event relative to the canvas.
+    draft.y = 0;
+    draft.down=false; //mouse pressed
+    draft.objects={}; 
+    draft.init = init; //actual declaration is after the init function.
+    draft.showGrid = false;
+    draft.message = null; // Message to be pushed out next time output is sent.
+    draft.pushInterval = null;//interval handle
     draft.init = init;
 
-   
-    // brush modules
-    draft.tools['Point'] = {
-        selected:null,
-        click:false,
-        up:function(e){
-            console.log("--- mouse up ---");
-            this.selected = null;
-            console.log(this.click);
-            if(this.click){
-                console.log("Point added.");
-                var npoint = {'x':draft.x,'y':draft.y}
-                draft.objects.points.push(npoint);
-                draft.message = 
-                {
-                    'type':'push', 
-                    'object':'points', 
-                    'val':npoint
-                };
-            }
-            this.click = false;
-        },
-        down:function(e){
-            this.selected = select(draft);
-            console.log("Down");
-            this.click = true;
-        },
-        move:function(e){
-            console.log("Move");
-            this.click = false;
-        },
-        drag:function(e){
-            console.log("Drag");
-            this.click = false;
-            if(this.selected!=null){
-                draft.objects.points[this.selected].x=draft.x;
-                draft.objects.points[this.selected].y=draft.y;
-                refresh();
-                draft.message = 
-                    {
-                        'type':'update', 
-                        'object':'points', 
-                        'id':this.selected, 
-                        'val':draft.objects.points[this.selected]
-                    };
-//sock.send(JSON.stringify({'type':'update','objects':draft.objects}))
-            }
-        },    
-        reset:function(){
-            this.selected=null;
-            this.click = false;
-        }
-    }
-    draft.tools['Line'] = {
-        selected:[],
-        up:function(e){
-            var p = select(draft);
-            if(p == null) return;
-            if(this.selected.length==0)
-            {
-                this.selected.push(p);
-                return;
-            }
-            if(this.selected[0]==p){
-                this.selected.length = 0;
-                return;
-            }
-
-            var nline = {'p1':this.selected[0], 'p2':p}
-            draft.objects.lines.push(nline);
-            draft.message = {
-                'type':'push',
-                'object':'lines',
-                'val':nline
-            }
-            this.selected[0]=p;
-        },
-        down:function(e){
-        },
-        move:function(e){
-        },
-        drag:function(e){
-        },   
-        reset:function(e){
-            this.selected.length=0;
-        }
-    }
-
-    draft.activeTool = draft.tools['Point'];
+    setupTools();
 })(this);
 
