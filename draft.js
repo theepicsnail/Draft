@@ -18,13 +18,14 @@ function dist(p1, p2){
 
 
 
-function Tool(){}
+function Tool(){} //this isn't actually used anywhere.. it's just the layout i'm basing tools off of.
 Tool.prototype={
     'selected':[], //Points being used by the tool/points to highlight 
     'up'  :function(e){},
     'down':function(e){},
     'move':function(e){},
-    'drag':function(e){}
+    'drag':function(e){},
+    'reset':function(){}
 };
 
 
@@ -52,8 +53,6 @@ Tool.prototype={
 
     function refresh(){
         // redraw all the objects on the canvas
-        console.log("Refresh:");
-        console.log(draft.objects);
         with(draft.context){
             with(draft.canvas){
                 clearRect(0,0,width,height);
@@ -91,7 +90,6 @@ Tool.prototype={
                 var p1 = draft.objects.points[c.p1];
                 var p2 = draft.objects.points[c.p2];
                 var r = dist(p1,p2);
-                console.log(p1+"\n"+p2+"\n"+r);
                 beginPath();
                 arc(p1.x,p1.y,r,0,Math.PI*2,true);
                 stroke();
@@ -160,8 +158,8 @@ Tool.prototype={
     }
 
     function up(e){
+        setXY(e);
         draft.down = false;
-        draft.selected = null;
 
         draft.activeTool.up(e);
         
@@ -170,27 +168,19 @@ Tool.prototype={
     
     function move(e){
         setXY(e);
-        if(draft.down){
+        if(draft.down)
             drag(e);
-            return;
-        }
-        draft.activeTool.move(e);
+        else
+            draft.activeTool.move(e);
     }
 
     function drag(e){
-        setXY(e);
-        if(draft.selected!=null)
-        {
-            draft.objects.points[draft.selected].x=draft.x;
-            draft.objects.points[draft.selected].y=draft.y;
-        }
         draft.activeTool.drag(e);
         refresh(); 
     }
     // End UI events.
 
 
-//sock.send(JSON.stringify({'type':'path','path':draft.path}))
 
 
 
@@ -209,7 +199,6 @@ Tool.prototype={
             , 50);
         };
         sock.onmessage = function(msg) {
-            console.log(msg);
             var data = JSON.parse(msg.data);
             if (data.type == 'sync'){
                 draft.objects = data.objects;
@@ -217,49 +206,28 @@ Tool.prototype={
                 usercount.innerHTML= data.usercount;
                 refresh(); 
             }
-            if (data.type == 'path'){
-                with(draft.context){
-                    draft.path = []
-                    while(data.path.length > 0){
-                        var item = data.path.pop()
-                        draft.path.push(item);
-                        if (draft.path.length > 1){
-                            draft.brushes[item.b].draw(item)
-                        }
-                    };
-                    draft.path = []
-                };
-            }
             if (data.type == 'stats'){
             }
         };
         sock.onclose = function() {
             console.log('disconnected');
-            setTimeout(function(){connect();},1000);
+            setTimeout(function(){try{connect();}catch(e){}},1000);
             clearInterval(draft.pushInterval);
         };
     }
 
 
-    //toggle active tool in sidebar
-    function swapClass(e,cl){
-        var buttons = document.getElementsByClassName(cl);
-        Array.prototype.slice.call(buttons, 0).forEach(function(el){
-            el.className = 'color';
-        })
-        e.toElement.className += " "+cl;
-    }
 
     //main initialization routine
     function init(){
 
         // set up brush select box
-
         var select = document.getElementsByTagName('select')[0];
         Object.keys(draft.tools).forEach(function(tool){
             var option = new Option(tool,tool);
             select.options[select.options.length] = option;
         })
+        
 
 
         // build canvas and set up events
@@ -274,12 +242,12 @@ Tool.prototype={
                 canvas.height = window.innerHeight;
                 refresh();
             }
-            canvas.addEventListener('mousedown', down);
-            canvas.addEventListener('touchstart', down);
-            canvas.addEventListener('touchend', up);
-            canvas.addEventListener('mouseup', up);
-            canvas.addEventListener('mousemove', move);
-            canvas.addEventListener('touchmove', move);
+            canvas.addEventListener('mousedown', down,false);
+            canvas.addEventListener('touchstart', down,false);
+            canvas.addEventListener('touchend', up,false);
+            canvas.addEventListener('mouseup', up,false);
+            canvas.addEventListener('mousemove', move,false);
+            canvas.addEventListener('touchmove', move,false);
             canvas.addEventListener('contextmenu', function(e){
                 if (e.button === 2){
                     e.preventDefault();
@@ -299,8 +267,12 @@ Tool.prototype={
 //            addEventListener("fullscreenchange", toggleaside, false);
 //            addEventListener("mozfullscreenchange", toggleaside, false);
 //            addEventListener("webkitfullscreenchange", toggleaside, false);
-            getElementById('brushselect')[0].addEventListener('change', function(e){
-                draft.b = e.target.value;
+            getElementById('brushselect').addEventListener('change', function(e){
+                console.log("tool changed:");
+                console.log(e);
+                
+                draft.activeTool = draft.tools[e.target.value];
+                draft.activeTool.reset();
             });
             getElementById('grid').addEventListener('change',function(e){
                 
@@ -365,8 +337,11 @@ Tool.prototype={
         selected:null,
         click:false,
         up:function(e){
+            console.log("--- mouse up ---");
             this.selected = null;
+            console.log(this.click);
             if(this.click){
+                console.log("Point added.");
                 var npoint = {'x':draft.x,'y':draft.y}
                 draft.objects.points.push(npoint);
                 draft.message = 
@@ -376,15 +351,19 @@ Tool.prototype={
                     'val':npoint
                 };
             }
+            this.click = false;
         },
         down:function(e){
             this.selected = select(draft);
+            console.log("Down");
             this.click = true;
         },
         move:function(e){
+            console.log("Move");
             this.click = false;
         },
         drag:function(e){
+            console.log("Drag");
             this.click = false;
             if(this.selected!=null){
                 draft.objects.points[this.selected].x=draft.x;
@@ -399,8 +378,47 @@ Tool.prototype={
                     };
 //sock.send(JSON.stringify({'type':'update','objects':draft.objects}))
             }
-        }    
+        },    
+        reset:function(){
+            this.selected=null;
+            this.click = false;
+        }
     }
+    draft.tools['Line'] = {
+        selected:[],
+        up:function(e){
+            var p = select(draft);
+            if(p == null) return;
+            if(this.selected.length==0)
+            {
+                this.selected.push(p);
+                return;
+            }
+            if(this.selected[0]==p){
+                this.selected.length = 0;
+                return;
+            }
+
+            var nline = {'p1':this.selected[0], 'p2':p}
+            draft.objects.lines.push(nline);
+            draft.message = {
+                'type':'push',
+                'object':'lines',
+                'val':nline
+            }
+            this.selected[0]=p;
+        },
+        down:function(e){
+        },
+        move:function(e){
+        },
+        drag:function(e){
+        },   
+        reset:function(e){
+            this.selected.length=0;
+        }
+    }
+
     draft.activeTool = draft.tools['Point'];
 })(this);
 
