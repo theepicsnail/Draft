@@ -35,14 +35,22 @@ Tool.prototype={
 
 
 (function(root){
-
-    function refresh(){//{{{
+    
+    var canvasBackground = new Image();
+    function refreshBG(){//{{{
         // redraw all the objects on the canvas
         with(draft.context){
-            lineCap = 'round';
-            fillStyle="rgb(0,0,100)";
             with(draft.canvas){
+                var grad = createLinearGradient(0,0,0,height);
+                grad.addColorStop(0,'rgb(0,0,100)');
+                grad.addColorStop(1,'rgb(0,0,200)');
+                fillStyle=grad;
                 fillRect(0,0,width,height);
+                lineCap = 'round';               
+
+
+
+
                 if(draft.gridOptions["lines"]){//{{{
                     drawGrid = function (spacing){
                         beginPath();
@@ -78,7 +86,6 @@ Tool.prototype={
                     for(var y=0; y< height; y+=spacing)
                     {
                         beginPath();
-                        console.log((x%spacing2==0) && (y%spacing2==0));
                         if((x%spacing2==0) && (y%spacing2==0))
                             lineWidth= 7;
                         
@@ -89,11 +96,19 @@ Tool.prototype={
                             lineWidth= 2;
                     }
                 }
-
-
             }
-            strokeStyle = "rgb(255,255,255)";
-   
+            canvasBackground.src=canvas.toDataURL("image/png");
+        }
+    }//}}}
+
+    function refreshFG(){//{{{
+        if(canvasBackground == null)
+            refreshBG();
+        with(draft.context){
+            drawImage(canvasBackground,0,0);
+
+
+            strokeStyle = "rgb(255,255,255)"; 
             lineWidth=5;
             //Draw circles first, they might eventually fill with colors?
             draft.objects.circles.forEach(function(c,idx,array){
@@ -104,7 +119,8 @@ Tool.prototype={
                 arc(p1.x,p1.y,r,0,Math.PI*2,true);
                 stroke();
             });
-            
+
+            //Lines 2nd        
             draft.objects.lines.forEach(function(ln,idx,array){
                 p1 = draft.objects.points[ln.p1];
                 p2 = draft.objects.points[ln.p2];
@@ -139,7 +155,6 @@ Tool.prototype={
                     strokeStyle = "rgb(128,128,255)";
             });
         }
-    
     }//}}}
 
     function select(loc){//{{{
@@ -161,7 +176,7 @@ Tool.prototype={
 
         draft.activeTool.down(e);
         
-        refresh();
+        refreshFG();
     }
 
     function up(e){
@@ -170,7 +185,7 @@ Tool.prototype={
 
         draft.activeTool.up(e);
         
-        refresh();
+        refreshFG();
     }
     
     function move(e){
@@ -183,7 +198,7 @@ Tool.prototype={
 
     function drag(e){
         draft.activeTool.drag(e);
-        refresh(); 
+        refreshFG(); 
     }
     //}}} End UI events.
 
@@ -198,6 +213,7 @@ Tool.prototype={
                     draft.message = null;
                 }
             , 50);
+            refreshBG();
         };
         sock.onmessage = function(msg) {
             var data = JSON.parse(msg.data);
@@ -205,10 +221,10 @@ Tool.prototype={
                 draft.objects = data.objects;
                 var usercount = document.getElementById('users');
 //                usercount.innerHTML= data.usercount;
-                refresh(); 
+                refreshFG(); 
             }
             if (data.type == 'stats'){
-                
+//                console.log(data)
             }
         };
         sock.onclose = function() {
@@ -229,7 +245,8 @@ Tool.prototype={
             window.onresize = function(){
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                refresh();
+                refreshBG();
+                refreshFG();
             }
             canvas.addEventListener('mousedown', down,false);
             canvas.addEventListener('touchstart', down,false);
@@ -261,8 +278,8 @@ Tool.prototype={
                 var selected = $(this).is('.selected');
                 var id = e.target.id;
                 draft.gridOptions[id]=selected;
-                refresh();
-                 
+                refreshBG();
+                refreshFG();
             });
 
 
@@ -368,7 +385,7 @@ Tool.prototype={
                 if(this.selected!=null){
                     draft.objects.points[this.selected].x=draft.x;
                     draft.objects.points[this.selected].y=draft.y;
-                    refresh();
+                    refreshFG();
                     draft.message = 
                         {
                             'type':'update', 
