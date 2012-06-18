@@ -22,15 +22,12 @@
     width:132px;
     text-align:center;
 }
+.group .break {
+    height:1px;
+    display:block;
+}
 
 div .button{ 
-    text-align:center;
-    display: table-cell; 
-    vertical-align:middle;
-    width:40px;
-    height:30px;
-    font-size:30px;
-    font-family:symbola;
     background: #ccc;
     cursor: pointer;
     border-top: solid 2px #eaeaea;
@@ -49,7 +46,16 @@ div.button.selected {
     border-right: solid 2px #eaeaea;
 }
 
-.toolMode {
+div.toolMode {
     font-size:15px;
 }
 
+.iconButtons div{
+    font-size:30px;
+    text-align:center;
+    display: table-cell; 
+    vertical-align:middle;
+    width:40px;
+    height:30px;
+    font-family:symbola;
+}
