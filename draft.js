@@ -1,41 +1,4 @@
-//Global stuff, put in another file?
-function setXY(e){
-    if (e.targetTouches){
-        draft.x = e.targetTouches[0].pageX;
-        draft.y = e.targetTouches[0].pageY;
-    } else {
-        draft.x = e.pageX;
-        draft.y = e.pageY;
-   }
-}
-
-function dist(p1, p2){
-    var dx = p1.x - p2.x;
-    var dy = p1.y - p2.y;
-    return Math.sqrt(dx*dx+dy*dy);
-}
-
-
-
-function Tool(){} //this isn't actually used anywhere.. it's just the layout i'm basing tools off of.
-Tool.prototype={
-    'selected':[], //Points being used by the tool/points to highlight 
-    'up'  :function(e){},
-    'down':function(e){},
-    'move':function(e){},
-    'drag':function(e){},
-    'reset':function(){}
-};
-
-
-
-
-
-
-
-
 (function(root){
-    
     var canvasBackground = new Image();
     function refreshBG(){//{{{
         // redraw all the objects on the canvas
@@ -46,10 +9,7 @@ Tool.prototype={
                 grad.addColorStop(1,'rgb(0,0,200)');
                 fillStyle=grad;
                 fillRect(0,0,width,height);
-                lineCap = 'round';               
-
-
-
+                lineCap = 'round';         
 
                 if(draft.gridOptions["lines"]){//{{{
                     drawGrid = function (spacing){
@@ -157,46 +117,42 @@ Tool.prototype={
         }
     }//}}}
 
-    function select(loc){//{{{
-        //select the point at loc
-        var selected = null;
-        draft.objects.points.forEach(function(p,idx){
-            if(selected != null) return; //once we found a point, ignore the rest.
-                                         //I don't know how to exit a forEach :(
-            if(dist(p,loc)<5)
-                selected = idx;
-        });
-        return selected;
-    }//}}}
 
     //{{{ UI events
     function down(e){
+        console.log("down");
         draft.down = true;
-        setXY(e);
 
+        if(draft.activeTool==null)return;
+        if(draft.activeTool.down==null) return;
+        setXY(e);
         draft.activeTool.down(e);
-        
         refreshFG();
     }
 
     function up(e){
-        setXY(e);
+        console.log("up");
         draft.down = false;
 
+        if(draft.activeTool==null)return;
+        if(draft.activeTool.up==null) return;
+        setXY(e);
         draft.activeTool.up(e);
-        
         refreshFG();
     }
     
     function move(e){
+        if(draft.activeTool==null)return;
         setXY(e);
         if(draft.down)
             drag(e);
-        else
+        else if(draft.activeTool.move)
             draft.activeTool.move(e);
     }
 
     function drag(e){
+        console.log("drag");
+        if(draft.activeTool.drag==null) return;
         draft.activeTool.drag(e);
         refreshFG(); 
     }
@@ -235,6 +191,7 @@ Tool.prototype={
     }//}}}
 
     function init(){//{{{
+
         // Setup Canvas
         draft.canvas = document.getElementsByTagName('canvas')[0];
         draft.context = draft.canvas.getContext('2d');
@@ -272,7 +229,7 @@ Tool.prototype={
                 }
                 var id = e.target.id;
                 console.log("set active tool :"+id);
-                draft.activeTool=draft.tools[id];
+                draft.activeTool=Tool(id);
             });
             $('.gridoption').click(function(e){
                 var selected = $(this).is('.selected');
@@ -281,59 +238,6 @@ Tool.prototype={
                 refreshBG();
                 refreshFG();
             });
-
-
-/*
-            var select = document.getElementsByTagName('select')[0];
-            Object.keys(draft.tools).forEach(function(tool){
-                var option = new Option(tool,tool);
-                select.options[select.options.length] = option;
-            });
-            getElementById('brushselect').addEventListener('change', function(e){
-                console.log("tool changed:");
-                console.log(e);
-                
-                draft.activeTool = draft.tools[e.target.value];
-                draft.activeTool.reset();
-            });
-            getElementById('grid').addEventListener('change',function(e){
-                
-                switch(e.target.value){
-                    case "off":
-                        draft.showGrid = false;
-                    break;
-                    case "snap":
-                    //snap logic here
-                    //fall through to 'on' case.
-                    case "on":
-                        draft.showGrid = true;
-                    break;
-                }
-                refresh();
-            });
-            getElementById('sizerange').addEventListener('change', function(e){
-                draft.w = e.target.value;
-            });
-            getElementById('alpharange').addEventListener('change', function(e){
-                draft.a = e.target.value;
-                draft.context.globalAlpha = e.target.value / 100;
-            });
-            getElementById('color1').addEventListener('click', function(e){
-                swapClass(e,'activecolor');
-                draft.c = draft.color1;
-                draft.colora = draft.color1;
-            });
-            getElementById('color2').addEventListener('click', function(e){
-                swapClass(e,'activecolor');
-                draft.c = draft.color2;
-                draft.colora = draft.color2;
-            });
-            getElementById('color3').addEventListener('click', function(e){
-                swapClass(e,'activecolor');
-                draft.c = draft.color3;
-                draft.colora = draft.color3;
-            });
-*/
         }
 
 
@@ -345,99 +249,11 @@ Tool.prototype={
             }, 0);
         }
 
+        setupTools();
         // connect to server
         connect();
     }//}}}
    
-    function setupTools(){//{{{ Tools
-        draft.tools['point'] = {
-            selected:null,
-            click:false,
-            up:function(e){
-                console.log("--- mouse up ---");
-                this.selected = null;
-                console.log(this.click);
-                if(this.click){
-                    console.log("Point added.");
-                    var npoint = {'x':draft.x,'y':draft.y}
-                    draft.objects.points.push(npoint);
-                    draft.message = 
-                    {
-                        'type':'push', 
-                        'object':'points', 
-                        'val':npoint
-                    };
-                }
-                this.click = false;
-            },
-            down:function(e){
-                this.selected = select(draft);
-                console.log("Down");
-                this.click = true;
-            },
-            move:function(e){
-                console.log("Move");
-                this.click = false;
-            },
-            drag:function(e){
-                console.log("Drag");
-                this.click = false;
-                if(this.selected!=null){
-                    draft.objects.points[this.selected].x=draft.x;
-                    draft.objects.points[this.selected].y=draft.y;
-                    refreshFG();
-                    draft.message = 
-                        {
-                            'type':'update', 
-                            'object':'points', 
-                            'id':this.selected, 
-                            'val':draft.objects.points[this.selected]
-                        };
-    //sock.send(JSON.stringify({'type':'update','objects':draft.objects}))
-                }
-            },    
-            reset:function(){
-                this.selected=null;
-                this.click = false;
-            }
-        }
-        draft.tools['line'] = {
-            selected:[],
-            up:function(e){
-                var p = select(draft);
-                if(p == null) return;
-                if(this.selected.length==0)
-                {
-                    this.selected.push(p);
-                    return;
-                }
-                if(this.selected[0]==p){
-                    this.selected.length = 0;
-                    return;
-                }
-
-                var nline = {'p1':this.selected[0], 'p2':p}
-                draft.objects.lines.push(nline);
-                draft.message = {
-                    'type':'push',
-                    'object':'lines',
-                    'val':nline
-                }
-                this.selected[0]=p;
-            },
-            down:function(e){
-            },
-            move:function(e){
-            },
-            drag:function(e){
-            },   
-            reset:function(e){
-                this.selected.length=0;
-            }
-        }
-
-        draft.activeTool = draft.tools['Point'];
-    }//}}} End tools
 
     //set up namespace
     var draft = typeof exports != 'undefined' ? exports : root.draft = {}
@@ -458,6 +274,5 @@ Tool.prototype={
     draft.pushInterval = null;//interval handle
     draft.init = init;
 
-    setupTools();
 })(this);
 
