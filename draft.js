@@ -1,13 +1,12 @@
 //Global stuff, put in another file?
 function setXY(e){
-    var headerheight = document.getElementsByTagName('header')[0].offsetHeight;
     if (e.targetTouches){
         draft.x = e.targetTouches[0].pageX;
-        draft.y = e.targetTouches[0].pageY - headerheight;
+        draft.y = e.targetTouches[0].pageY;
     } else {
         draft.x = e.pageX;
-        draft.y = e.pageY - headerheight;
-    }
+        draft.y = e.pageY;
+   }
 }
 
 function dist(p1, p2){
@@ -40,9 +39,11 @@ Tool.prototype={
     function refresh(){//{{{
         // redraw all the objects on the canvas
         with(draft.context){
+            lineCap = 'round';
+            fillStyle="rgb(0,0,100)";
             with(draft.canvas){
-                clearRect(0,0,width,height);
-                if(draft.showGrid){ 
+                fillRect(0,0,width,height);
+                if(draft.gridOptions["lines"]){//{{{
                     drawGrid = function (spacing){
                         beginPath();
                         for(var i=0; i< width; i+= spacing)
@@ -65,10 +66,33 @@ Tool.prototype={
                     lineWidth=2;
                     strokeStyle = "rgb(200,200,200)";
                     drawGrid(200);
+                }//}}}
+
+                if(draft.gridOptions["points"]){
+                    lineWidth=2;
+                    strokeStyle = "rgb(200,200,200)";
+                    var spacing = 40;
+                    var spacing2=200;
+                    lineWidth = 2;
+                    for(var x=0; x< width;  x+=spacing)
+                    for(var y=0; y< height; y+=spacing)
+                    {
+                        beginPath();
+                        console.log((x%spacing2==0) && (y%spacing2==0));
+                        if((x%spacing2==0) && (y%spacing2==0))
+                            lineWidth= 7;
+                        
+                        moveTo(x-.5,y);
+                        lineTo(x+.5,y);
+                        stroke();
+                        if((x%spacing2==0) && (y%spacing2==0))
+                            lineWidth= 2;
+                    }
                 }
+
+
             }
             strokeStyle = "rgb(255,255,255)";
-            lineCap = 'round';
    
             lineWidth=5;
             //Draw circles first, they might eventually fill with colors?
@@ -180,7 +204,7 @@ Tool.prototype={
             if (data.type == 'sync'){
                 draft.objects = data.objects;
                 var usercount = document.getElementById('users');
-                usercount.innerHTML= data.usercount;
+//                usercount.innerHTML= data.usercount;
                 refresh(); 
             }
             if (data.type == 'stats'){
@@ -223,12 +247,31 @@ Tool.prototype={
 
         // set up document
         with(document){
+            $('.tool').click(function(e){
+                if(!$(this).is('.selected')){
+                    console.log("unset active tool");
+                    draft.activeTool=null;
+                    return;
+                }
+                var id = e.target.id;
+                console.log("set active tool :"+id);
+                draft.activeTool=draft.tools[id];
+            });
+            $('.gridoption').click(function(e){
+                var selected = $(this).is('.selected');
+                var id = e.target.id;
+                draft.gridOptions[id]=selected;
+                refresh();
+                 
+            });
+
+
+/*
             var select = document.getElementsByTagName('select')[0];
             Object.keys(draft.tools).forEach(function(tool){
                 var option = new Option(tool,tool);
                 select.options[select.options.length] = option;
             });
-
             getElementById('brushselect').addEventListener('change', function(e){
                 console.log("tool changed:");
                 console.log(e);
@@ -273,7 +316,9 @@ Tool.prototype={
                 draft.c = draft.color3;
                 draft.colora = draft.color3;
             });
+*/
         }
+
 
         // hide address bar for Android
         if (window.navigator.userAgent.match('/Android/i')){
@@ -288,7 +333,7 @@ Tool.prototype={
     }//}}}
    
     function setupTools(){//{{{ Tools
-        draft.tools['Point'] = {
+        draft.tools['point'] = {
             selected:null,
             click:false,
             up:function(e){
@@ -339,7 +384,7 @@ Tool.prototype={
                 this.click = false;
             }
         }
-        draft.tools['Line'] = {
+        draft.tools['line'] = {
             selected:[],
             up:function(e){
                 var p = select(draft);
@@ -386,7 +431,12 @@ Tool.prototype={
     draft.down=false; //mouse pressed
     draft.objects={}; 
     draft.init = init; //actual declaration is after the init function.
-    draft.showGrid = false;
+    draft.gridOptions={
+        "lines":false,
+        "points":false,
+        "snap":false
+    };
+    
     draft.message = null; // Message to be pushed out next time output is sent.
     draft.pushInterval = null;//interval handle
     draft.init = init;

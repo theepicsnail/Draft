@@ -17,26 +17,23 @@ html,body {
 }
 
 canvas {
-  position:absolute;
-  left:0px;
-  top:35px;
-  right:0px;
-  bottom:0px;
+    position:absolute; 
+    left:0;
+    right:0;
 }
-header {
+#toolbox {
   position:absolute;
-  left:0px;
-  top:0px;
-  right:0px;
-  height:35px;
-  background:#666;
+  width:136px;
+  padding:10px;
+  border-radius: 20px;
+  -moz-border-radius:20px;
   overflow:hidden;
   background-color:#030303;
-  background-image: -moz-linear-gradient(top , #030303, #999999 0px,#000000 45px);
-  background-image: -webkit-linear-gradient(top , #030303, #999999 0px,#000000 45px);
-  background-image: -o-linear-gradient(top , #030303, #999999 0px,#000000 45px);
-  background-image: -ms-linear-gradient(top , #030303, #999999 0px,#000000 45px);
-  background-image: linear-gradient(top , #030303, #999999 0px,#000000 45px)
+  background-image: -webkit-linear-gradient(bottom, #cccccc, #000 0px,#888 140px);
+  background-image: -moz-linear-gradient   (bottom, #cccccc, #000 0px,#888 140px);
+  background-image: -o-linear-gradient     (bottom, #cccccc, #000 0px,#888 140px);
+  background-image: -ms-linear-gradient    (bottom, #cccccc, #000 0px,#888 140px);
+  background-image: linear-gradient        (bottom, #cccccc, #000 0px,#888 140px);
 }
 
 header h1 {

@@ -1,53 +1,173 @@
-<!DOCTYPE HTML5>
 <html>
-  <head>
-    <title>Draft</title>
-    <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0;" />
-    <meta name="HandheldFriendly" content="true"/>
-    <meta name="MobileOptimized" content="320"/>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link href='http://fonts.googleapis.com/css?family=Jolly+Lodger' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" media="screen" href="style.css">
-    <script src="http://cdn.sockjs.org/sockjs-0.2.min.js" type="text/javascript"></script>
-    <script src="draft.js" type="text/javascript"></script>
-    <script type="text/javascript">
-      window.onload = function(){
-        draft.init();
-      }
-    </script>
-  </head>
-  <body>
-    <header>
-      <h1>draft</h1>
-      <div id="tools">
-        <div id="bushes">
-          <select id='brushselect'></select>
-        </div>
-        <div id="gridOptions">
-<!--        <img src="res/grid.png"/> --!>
-        <select id='grid'>
-            <option value='off'>Hide</option>
-            <option value='on'>Show</option>
-            <option value='snap'>Snap</option>
-        </select>
-        </div>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script src="draft.js" type="text/javascript"></script>
+<script src="http://cdn.sockjs.org/sockjs-0.2.min.js" type="text/javascript"></script>
+<script src="http://threedubmedia.googlecode.com/files/jquery.event.drag-1.5.min.js" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" media="screen" href="style.css">
+<style type="text/css">
+
+@font-face { font-family: symbola; src: url('./res/Symbola.ttf'); }
+.group {
+    border:2px solid #aaa;
+    background:#ddd;
+    border-radius:10px;
+    -moz-border-radius:10px;
+    width:132px;
+    text-align:center;
+}
 
 
-        <div id="size">
-          <input id="sizerange" type="range" min="1" max="100" value="1" step="1">
-        </div>
-        <a id="color1" class="color activecolor" href="#">color1</a>
-        <a id="color2" class="color" href="#">color2</a>
-        <a id="color3" class="color" href="#">color3</a>
-        <div id="alpha">
-          <input id="alpharange" type="range" min="1" max="100" value="100" step="1">
-        </div>
-        <div id='users'>
-          <span id='usercount'></span> User(s)
-        </div>
-      </div>
-    </header>
+div .grid{ 
+    text-align:center;
+    display: table-cell; 
+    vertical-align:middle;
+    width:40px;
+    height:30px;
+    font-size:30px;
+    font-family:symbola;
+}
+
+
+div .button{
+    background: #ccc;
+    cursor: pointer;
+    border-top: solid 2px #eaeaea;
+    border-left: solid 2px #eaeaea;
+    border-bottom: solid 2px #777;
+    border-right: solid 2px #777;
+    border-radius:10px;
+    -moz-border-radius:10px;
+}
+
+div.button.selected {
+    background: #bbb;
+    border-top: solid 2px #777;
+    border-left: solid 2px #777;
+    border-bottom:solid 2px  #eaeaea;
+    border-right: solid 2px #eaeaea;
+}
+
+.toolMode {
+    font-size:15px;
+}
+
+</style>
+<script type="text/javascript">
+
+function updateHelp(id){
+    var helpMsg = "";
+    if(id == null)
+    {
+        helpMsg = "Select a tool!";
+    }
+    else
+    {
+        helpMsg = "This would display the '"+id+"' tools help message.";
+    }
+    $("#helpMsg")[0].innerHTML=helpMsg;
+}
+
+function updateModes(id){
+    function addMode(opt,name){
+        $('<div class="toolMode button" name="'+opt+'" id="'+opt+'">'+name+'</div>')
+        .appendTo($("#toolModes"));
+    }
+    var select = $("#toolModes");
+    select[0].innerHTML="";
+    switch(id){
+        case "circle":
+            addMode("2pt","Radius then circumference");
+            addMode("3pt","3 points on the circumference");
+        break;
+        case "draw":
+            addMode("free","Use a pen");
+            addMode("text","Write text");
+        break;
+    }
+
+    if(select[0].innerHTML){
+        select.height("auto");
+        $(".toolMode").click(function(){
+            $(this).addClass('selected').siblings().removeClass('selected');
+        });
+        $(".toolMode:first-child").addClass('selected');
+    }else{
+        select.height("0px");
+    }
+    
+}
+
+function init(){
+    $('.button').click(function(){
+        $(this).toggleClass('selected')
+
+        if($(this).is('.tool')){
+            $(this).siblings().removeClass('selected');
+    
+            var id = null;
+            if($(this).is('.selected')){
+                id = $(this).attr('id');
+            }
+            updateHelp(id);
+            updateModes(id);
+        }
+        
+    });
+
+    function setupDragging(){
+        $('#toolbox')
+             .bind('dragstart',function( event ){
+                return true
+                return $(event.target).is('.handle');
+                })
+            .bind('drag',function( event ){
+                $( this ).css({
+                        top: event.offsetY,
+                        left: event.offsetX
+                        });
+                });
+    }
+
+    updateHelp(null);
+    updateModes(null);
+    draft.init();
+    setupDragging();
+}
+</script>
+
+
+
+
+</head>
+<body onload='init()'>
     <canvas></canvas>
-  </body>
+   <div id="toolbox">
+        <div class="group">
+            Grid:
+            <div class="button gridoption grid" id="lines" title="Show grid">&#x25A6;</div>
+            <div class="button gridoption grid" id="points" title="Show points">&#x2237;</div>
+            <div class="button gridoption grid" id="snap" title="Snap">&#x2A28;</div>
+        </div>
+        <div class="group">
+            Tools:
+            <div class="button tool grid" id="point"  title="Point" >&#x22c5;</div>
+            <div class="button tool grid" id="line"   title="Line"  >&#x2015;</div>
+            <div class="button tool grid" id="circle" title="Circle">&#x2609;</div>
+            <div style="height:1px"></div>
+            <div class="button tool grid" id="draw"      title="Draw"        >&#x270f;</div>
+            <div class="button tool grid" id="midpoint"  title="Midpoint"    >&#x237f;</div>
+            <div class="button tool grid" id="bisection" title="Bisect Angle">&#x2AAA;</div>
+            <div style="height:1px"></div>
+            <div class="button tool grid" id="delete"        title="Delete"       >&#x2a2f;</div>
+            <div class="button tool grid" id="perpendicular" title="Perpendicular">&#x22A5;</div>
+            <div class="button tool grid" id="arc"           title="Arc"          >&#x21b7;</div>
+        </div>
+        <div class="group">
+            Modes:
+            <div id="toolModes"></div>
+        </div>
+    </div>
+    <span id="helpMsg">Help message</span>
+</body>
 </html>
