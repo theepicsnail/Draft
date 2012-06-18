@@ -4,8 +4,6 @@ var http = require('http');
 var fs = require('fs');
 var sockjs = require('sockjs');
 var node_static = require('node-static');
-var Canvas = require('canvas')
-var draft = require('./draft.js')
 
 var static_dir = new node_static.Server(__dirname);
 
