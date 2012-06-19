@@ -5,8 +5,8 @@
         with(draft.context){
             with(draft.canvas){
                 var grad = createLinearGradient(0,0,0,height);
-                grad.addColorStop(0,'rgb(0,0,100)');
-                grad.addColorStop(1,'rgb(0,0,200)');
+                grad.addColorStop(0,'rgb(0,0,200)');
+                grad.addColorStop(1,'rgb(0,0,100)');
                 fillStyle=grad;
                 fillRect(0,0,width,height);
                 lineCap = 'round';         
