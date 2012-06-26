@@ -13,7 +13,7 @@ var sockjs_server = sockjs.createServer(sockjs_opts);
 
 var http_server = http.createServer();
 
-var port = process.argv[2] || 12345;
+var port = process.argv[2] || 1897;
 
 var host = '0.0.0.0';
 
