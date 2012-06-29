@@ -59,6 +59,12 @@ function setupTools(){
     }//}}}
     draft.tools['line'] = function(){//{{{
         this.selected= [];
+        this.move=function(e){
+            var pt = select(draft);// see if we're above a point
+            console.log(this.selected);
+            if(pt!=null) this.selected[0] = pt;
+            else this.selected=[];
+        }
         this.up=function(e){
             var p = select(draft);
             if(p == null) return;
