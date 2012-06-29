@@ -66,6 +66,11 @@ function init(){
                 return $(event.target).is('.handle');
                 })
             .bind('drag',function( event ){
+                var canvas = $('canvas')
+                var toolbox= $('#toolbox')
+
+                event.offsetY = Math.min(Math.max(0,event.offsetY),canvas.height()-toolbox.height()-20)
+                event.offsetX = Math.min(Math.max(0,event.offsetX),canvas.width()-toolbox.width()-20)
                 $( this ).css({
                         top: event.offsetY,
                         left: event.offsetX
