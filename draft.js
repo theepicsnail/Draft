@@ -1,5 +1,6 @@
 (function(root){
     var canvasBackground = new Image();
+
     function refreshBG(){//{{{
         // redraw all the objects on the canvas
         with(draft.context){
@@ -64,18 +65,39 @@
     function refreshFG(){//{{{
         if(canvasBackground == null)
             refreshBG();
+
+        function selected(type, idx){
+            var rt = false;
+            try{
+                var selection = draft.activeTool.selected[type];
+                if(typeof(selection)=='number') 
+                    rt = (selection==idx)
+                else
+                    rt = selection.indexOf(idx)!=-1;
+            }catch(err){}
+            return rt;
+        }
+
+
         with(draft.context){
             drawImage(canvasBackground,0,0);
+            
+            defaultStyle  ="rgb(255,255,255)";
+            highlightStyle="rgb(64,128,64)";
 
+            strokeStyle = defaultStyle;
+            lineWidth   = 5;
 
-            strokeStyle = "rgb(255,255,255)"; 
-            lineWidth=5;
             //Draw circles first, they might eventually fill with colors?
             draft.objects.circles.forEach(function(c,idx,array){
                 var p1 = draft.objects.points[c.p1];
                 var p2 = draft.objects.points[c.p2];
                 var r = dist(p1,p2);
                 beginPath();
+                if(selected("circles",idx))
+                    strokeStyle=highlightStyle;
+                else
+                    strokeStyle = defaultStyle;
                 arc(p1.x,p1.y,r,0,Math.PI*2,true);
                 stroke();
             });
@@ -84,6 +106,11 @@
             draft.objects.lines.forEach(function(ln,idx,array){
                 p1 = draft.objects.points[ln.p1];
                 p2 = draft.objects.points[ln.p2];
+                beginPath();
+                if(selected("lines",idx))
+                    strokeStyle=highlightStyle;
+                else
+                    strokeStyle = defaultStyle;
                 moveTo(p1.x,p1.y);
                 lineTo(p2.x,p2.y);
                 stroke();
@@ -91,54 +118,42 @@
 
             //Draw Points last, so that they are on top of everything.
             lineWidth = 10;
-            strokeStyle = "rgb(128,128,255)";
+            defaultStyle = "rgb(128,128,255)";
             draft.objects.points.forEach(function(pt,idx,array){
                 beginPath();
-                var highlightPoint = false;
-                if(draft.activeTool)
-                {
-                    if(draft.activeTool.selected!=null)
-                    {
-                        var sel = draft.activeTool.selected;
-                        if(typeof(sel)=='number')
-                            highlightPoint = (sel == idx)
-                        else
-                            highlightPoint = (sel.indexOf(idx)!=-1)
-                    }
-                }
-                if(highlightPoint)
-                    strokeStyle = "rgb(255,128,128)";
+                if(selected("points",idx))
+                    strokeStyle=highlightStyle;
+                else
+                    strokeStyle = defaultStyle;
                 moveTo(pt.x-.5,pt.y);
                 lineTo(pt.x+.5,pt.y);
                 stroke();
-                if(highlightPoint)
-                    strokeStyle = "rgb(128,128,255)";
             });
         }
     }//}}}
 
-
     //{{{ UI events
+    var TRACE_UI = false;
     function down(e){
-        console.log("down");
+        if(TRACE_UI)console.log("down");
         draft.down = true;
 
         if(draft.activeTool==null)return;
         if(draft.activeTool.down==null) return;
         setXY(e);
-        draft.activeTool.down(e);
-        refreshFG();
+        if(draft.activeTool.down(e))
+            refreshFG();
     }
 
     function up(e){
-        console.log("up");
+        if(TRACE_UI)console.log("up");
         draft.down = false;
 
         if(draft.activeTool==null)return;
         if(draft.activeTool.up==null) return;
         setXY(e);
-        draft.activeTool.up(e);
-        refreshFG();
+        if(draft.activeTool.up(e))
+            refreshFG();
     }
     
     function move(e){
@@ -146,15 +161,17 @@
         setXY(e);
         if(draft.down)
             drag(e);
-        else if(draft.activeTool.move)
-            draft.activeTool.move(e);
+        else 
+            if(draft.activeTool.move)
+                if(draft.activeTool.move(e))
+                    refreshFG();
     }
 
     function drag(e){
-        console.log("drag");
+        if(TRACE_UI)console.log("drag");
         if(draft.activeTool.drag==null) return;
-        draft.activeTool.drag(e);
-        refreshFG(); 
+        if(draft.activeTool.drag(e))
+            refreshFG(); 
     }
     //}}} End UI events.
 
@@ -173,21 +190,31 @@
         };
         sock.onmessage = function(msg) {
             var data = JSON.parse(msg.data);
+            if (data.type == 'serverInfo'){
+                console.log("Server info: "+data.startTime+" "+draft.loadTime);
+                if (draft.loadTime < data.startTime)
+                    location.reload(true);
+            }
             if (data.type == 'sync'){
                 draft.objects = data.objects;
                 var usercount = document.getElementById('users');
 //                usercount.innerHTML= data.usercount;
                 refreshFG(); 
+
             }
             if (data.type == 'stats'){
 //                console.log(data)
             }
+            
         };
         sock.onclose = function() {
             console.log('disconnected');
             setTimeout(function(){try{connect();}catch(e){}},1000);
             clearInterval(draft.pushInterval);
         };
+        draft.sendMessage = function(msg){
+            sock.send(JSON.stringify(msg));
+        }
     }//}}}
 
     function init(){//{{{
@@ -270,9 +297,13 @@
         "snap":false
     };
     
-    draft.message = null; // Message to be pushed out next time output is sent.
+    draft.message = null; // Message to be pushed out next time output is sent. (unreliable)
     draft.pushInterval = null;//interval handle
+    draft.sendMessage = null; //Send a message (Sync)
+
     draft.init = init;
+
+    draft.loadTime = (new Date()).getTime();
 
 })(this);
 

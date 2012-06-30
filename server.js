@@ -13,7 +13,7 @@ var sockjs_server = sockjs.createServer(sockjs_opts);
 
 var http_server = http.createServer();
 
-var port = process.argv[2] || 12345;
+var port = process.argv[2] || 12346;
 
 var host = '0.0.0.0';
 
@@ -37,9 +37,9 @@ function Circle(center, p2){
     return Line(center, p2);
 }
 
-objects.points.push(Point(50,80));
-objects.points.push(Point(80,30));
-objects.points.push(Point(100,100));
+objects.points.push(Point(250,80));
+objects.points.push(Point(280,30));
+objects.points.push(Point(300,100));
 objects.lines.push(Line(0,1));
 objects.lines.push(Line(2,1));
 objects.lines.push(Line(0,2));
@@ -47,9 +47,12 @@ objects.circles.push(Circle(0,1));
 
 
 var count = 0;
+var startTime = (new Date()).getTime();
 sockjs_server.on('connection', function(socket) {
     sockets.push(socket);
+    socket.write(JSON.stringify({'type':'serverInfo', 'startTime':startTime}));
     socket.write(JSON.stringify({'type':'sync','objects':objects,'users':sockets.length}));
+     
     socket.on('data', function(message) {
         function pushUpdate(){
             for (var i in sockets){
@@ -63,8 +66,8 @@ sockjs_server.on('connection', function(socket) {
             }
         }
 
-        var data = JSON.parse(message);
         console.log(message);
+        var data = JSON.parse(message);
         switch(data.type){
         case 'update':
             objects[data.object][data.id]=data.val
