@@ -14,3 +14,18 @@ function dist(p1, p2){
     var dy = p1.y - p2.y;
     return Math.sqrt(dx*dx+dy*dy);
 }
+
+
+function selected(type, idx){
+    var rt = false;
+    try{
+        var selection = draft.activeTool.selected[type];
+        if(typeof(selection)=='number') 
+            rt = (selection==idx)
+        else
+            rt = selection.indexOf(idx)!=-1;
+    }catch(err){}
+    return rt;
+}
+
+

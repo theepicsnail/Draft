@@ -1,7 +1,10 @@
 (function(root){
-    var canvasBackground = new Image();
-
-    function refreshBG(){//{{{
+    var TRACE_UI = false;
+    var TRACE_LAYERS = true;
+    var gridLayer = new Image();
+    var objectLayer = new Image();
+    function refreshGridLayer(forceLowerLevel){//{{{
+        if(TRACE_LAYERS)console.log("Grid Layer: "+forceLowerLevel)
         // redraw all the objects on the canvas
         with(draft.context){
             with(draft.canvas){
@@ -37,7 +40,7 @@
                     drawGrid(200);
                 }//}}}
 
-                if(draft.gridOptions["points"]){
+                if(draft.gridOptions["points"]){//{{{
                     lineWidth=2;
                     strokeStyle = "rgb(200,200,200)";
                     var spacing = 40;
@@ -56,84 +59,116 @@
                         if((x%spacing2==0) && (y%spacing2==0))
                             lineWidth= 2;
                     }
-                }
+                }//}}}
             }
-            canvasBackground.src=canvas.toDataURL("image/png");
+            gridLayer.src=canvas.toDataURL("image/png");
         }
     }//}}}
 
-    function refreshFG(){//{{{
-        if(canvasBackground == null)
-            refreshBG();
-
-        function selected(type, idx){
-            var rt = false;
-            try{
-                var selection = draft.activeTool.selected[type];
-                if(typeof(selection)=='number') 
-                    rt = (selection==idx)
-                else
-                    rt = selection.indexOf(idx)!=-1;
-            }catch(err){}
-            return rt;
-        }
+    function refreshObjectLayer(forceLowerLevel){//{{{
+        if(TRACE_LAYERS)console.log("Object Layer: "+forceLowerLevel)
+        if(forceLowerLevel)
+            refreshGridLayer();
 
 
         with(draft.context){
-            drawImage(canvasBackground,0,0);
+            drawImage(gridLayer,0,0);
             
-            defaultStyle  ="rgb(255,255,255)";
-            highlightStyle="rgb(64,128,64)";
-
-            strokeStyle = defaultStyle;
+            strokeStyle = "rgb(255,255,255)";
             lineWidth   = 5;
-
+            beginPath() 
+            //Draw Objects {{{ 
             //Draw circles first, they might eventually fill with colors?
             draft.objects.circles.forEach(function(c,idx,array){
                 var p1 = draft.objects.points[c.p1];
                 var p2 = draft.objects.points[c.p2];
                 var r = dist(p1,p2);
-                beginPath();
-                if(selected("circles",idx))
-                    strokeStyle=highlightStyle;
-                else
-                    strokeStyle = defaultStyle;
                 arc(p1.x,p1.y,r,0,Math.PI*2,true);
-                stroke();
             });
 
             //Lines 2nd        
             draft.objects.lines.forEach(function(ln,idx,array){
                 p1 = draft.objects.points[ln.p1];
                 p2 = draft.objects.points[ln.p2];
-                beginPath();
-                if(selected("lines",idx))
-                    strokeStyle=highlightStyle;
-                else
-                    strokeStyle = defaultStyle;
                 moveTo(p1.x,p1.y);
                 lineTo(p2.x,p2.y);
-                stroke();
             });
+            stroke();
 
             //Draw Points last, so that they are on top of everything.
+            beginPath() 
             lineWidth = 10;
-            defaultStyle = "rgb(128,128,255)";
+            strokeStyle = "rgb(128,128,255)";
             draft.objects.points.forEach(function(pt,idx,array){
-                beginPath();
-                if(selected("points",idx))
-                    strokeStyle=highlightStyle;
-                else
-                    strokeStyle = defaultStyle;
                 moveTo(pt.x-.5,pt.y);
                 lineTo(pt.x+.5,pt.y);
-                stroke();
             });
+            stroke();
+            //}}}
+        //    objectLayer.src = canvas.toDataURL("image/png");
         }
+        
     }//}}}
 
+    function refreshToolLayer(forceLowerLevel){
+        if(TRACE_LAYERS)console.log("Tool Layer: "+forceLowerLevel)
+        forceLowerLevel=true
+        if(forceLowerLevel) 
+            refreshObjectLayer(false);
+
+        if(!draft.activeTool)return;
+//        draft.context.drawImage(objectLayer,0,0);
+    
+        var selected = draft.activeTool.selected;
+
+        with(draft.context){//{{{
+                beginPath();
+
+                strokeStyle="rgb(64,128,64)";
+                lineWidth   = 5;
+                if(selected.circles)
+                selected.circles.forEach(function(c,idx,array){
+                    c = draft.objects.circles[c];
+                    if(c==null) return;
+                    var p1 = draft.objects.points[c.p1];
+                    var p2 = draft.objects.points[c.p2];
+                    var r = dist(p1,p2);
+                    arc(p1.x,p1.y,r,0,Math.PI*2,true);
+                });
+
+                //Lines 2nd        
+                if(selected.lines)
+                selected.lines.forEach(function(ln,idx,array){
+                    ln = draft.objects.lines[ln];
+                    if(ln==null) return;
+                    var p1 = draft.objects.points[ln.p1];
+                    var p2 = draft.objects.points[ln.p2];
+                    if(p1==null || p2==null) return;
+                    moveTo(p1.x,p1.y);
+                    lineTo(p2.x,p2.y);
+                    stroke();
+                });
+
+                //Draw Points last, so that they are on top of everything.
+                lineWidth = 10;
+                defaultStyle = "rgb(128,128,255)";
+                if(selected.points)
+                selected.points.forEach(function(pt,idx,array){ 
+                    pt = draft.objects.points[pt];
+                    if(pt==null) return;
+                    moveTo(pt.x-.5,pt.y);
+                    lineTo(pt.x+.5,pt.y);
+                });
+                stroke();
+                //}}}
+     
+        }
+        if(draft.activeTool.draw)
+            draft.activeTool.draw(draft.context);
+    }
+
+
     //{{{ UI events
-    var TRACE_UI = false;
     function down(e){
         if(TRACE_UI)console.log("down");
         draft.down = true;
@@ -142,7 +177,7 @@
         if(draft.activeTool.down==null) return;
         setXY(e);
         if(draft.activeTool.down(e))
-            refreshFG();
+            refreshToolLayer();
     }
 
     function up(e){
@@ -153,7 +188,7 @@
         if(draft.activeTool.up==null) return;
         setXY(e);
         if(draft.activeTool.up(e))
-            refreshFG();
+            refreshToolLayer();
     }
     
     function move(e){
@@ -164,14 +199,14 @@
         else 
             if(draft.activeTool.move)
                 if(draft.activeTool.move(e))
-                    refreshFG();
+                    refreshToolLayer();
     }
 
     function drag(e){
         if(TRACE_UI)console.log("drag");
         if(draft.activeTool.drag==null) return;
         if(draft.activeTool.drag(e))
-            refreshFG(); 
+            refreshToolLayer(); 
     }
     //}}} End UI events.
 
@@ -185,8 +220,8 @@
                         sock.send(JSON.stringify(draft.message));
                     draft.message = null;
                 }
-            , 50);
-            refreshBG();
+            , 10);
+            refreshGridLayer();
         };
         sock.onmessage = function(msg) {
             var data = JSON.parse(msg.data);
@@ -199,8 +234,8 @@
                 draft.objects = data.objects;
                 var usercount = document.getElementById('users');
 //                usercount.innerHTML= data.usercount;
-                refreshFG(); 
-
+                refreshObjectLayer(); 
+                
             }
             if (data.type == 'stats'){
 //                console.log(data)
@@ -213,6 +248,8 @@
             clearInterval(draft.pushInterval);
         };
         draft.sendMessage = function(msg){
+            console.log("Out:")
+            console.log(msg)
             sock.send(JSON.stringify(msg));
         }
     }//}}}
@@ -229,8 +266,7 @@
             window.onresize = function(){
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                refreshBG();
-                refreshFG();
+                refreshObjectLayer(true);
             }
             canvas.addEventListener('mousedown', down,false);
             canvas.addEventListener('touchstart', down,false);
@@ -262,8 +298,8 @@
                 var selected = $(this).is('.selected');
                 var id = e.target.id;
                 draft.gridOptions[id]=selected;
-                refreshBG();
-                refreshFG();
+
+                refreshObjectLayer(true);
             });
         }
 

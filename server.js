@@ -56,7 +56,7 @@ sockjs_server.on('connection', function(socket) {
     socket.on('data', function(message) {
         function pushUpdate(){
             for (var i in sockets){
-                if (sockets[i] == socket) continue;
+//                if (sockets[i] == socket) continue;
                 console.log("Pushing message:"+count);
                 count = count + 1;
                 sockets[i].write(
