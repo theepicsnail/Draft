@@ -1,6 +1,6 @@
-(function(root){
+draft = (function(root){
     var TRACE_UI = false;
-    var TRACE_LAYERS = true;
+    var TRACE_LAYERS = false;
     var gridLayer = new Image();
     var objectLayer = new Image();
     function refreshGridLayer(forceLowerLevel){//{{{
@@ -110,7 +110,7 @@
         
     }//}}}
 
-    function refreshToolLayer(forceLowerLevel){
+    function refreshToolLayer(forceLowerLevel){//{{{
         if(TRACE_LAYERS)console.log("Tool Layer: "+forceLowerLevel)
         forceLowerLevel=true
         if(forceLowerLevel) 
@@ -165,8 +165,7 @@
         }
         if(draft.activeTool.draw)
             draft.activeTool.draw(draft.context);
-    }
-
+    }//}}}
 
     //{{{ UI events
     function down(e){
@@ -283,25 +282,31 @@
         }
 
         // set up document
-        with(document){
-            $('.tool').click(function(e){
-                if(!$(this).is('.selected')){
-                    console.log("unset active tool");
-                    draft.activeTool=null;
-                    return;
-                }
-                var id = e.target.id;
-                console.log("set active tool :"+id);
-                draft.activeTool=Tool(id);
-            });
+        root.Toolbox.addToolListener(function (e){
+            console.log("Active tool: " + e)
+            draft.activeTool = Tool(e)
+            root.Toolbox.updateModes(draft.activeTool)
+        });
+        root.Toolbox.addModeListener(function (e){
+            console.log("Active mode: " + e)
+            if(draft.activeTool && draft.activeTool.setMode)
+                draft.activeTool.setMode(e)
+            else
+                console.log("Mode changed for a tool that doesn't handle mode changes?")
+        });
+        root.Toolbox.addGridListener(function (e){
+            console.log("Grid option: " + e.id +" = "+e.value)
+            draft.gridOptions[e.id] = e.value;
+            refreshObjectLayer(true);
+        });
+/*        with(document){
             $('.gridoption').click(function(e){
                 var selected = $(this).is('.selected');
                 var id = e.target.id;
                 draft.gridOptions[id]=selected;
 
-                refreshObjectLayer(true);
             });
-        }
+        }*/
 
 
         // hide address bar for Android
@@ -319,7 +324,7 @@
    
 
     //set up namespace
-    var draft = typeof exports != 'undefined' ? exports : root.draft = {}
+    var draft = {}
     draft.tools = {};
     draft.activeTool = null;//null or the tools name/key 
     draft.x = 0;      //position of the current event relative to the canvas.
@@ -341,5 +346,7 @@
 
     draft.loadTime = (new Date()).getTime();
 
+    return draft;
+    
 })(this);
 

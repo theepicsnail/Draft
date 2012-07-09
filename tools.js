@@ -1,7 +1,12 @@
 
 function Tool(type){
-    return new draft.tools[type]();
+    if(type in draft.tools)
+        return new draft.tools[type]();
+    return null;
 }
+
+
+
 
 function select(loc){//{{{
     //select the point at loc
@@ -103,9 +108,6 @@ function setupTools(){
             return true; 
         }
         this.draw = function(ctx){
-            console.log("Line draw")
-            console.log(this.selected.points)
-            console.log(this.dragTarget)
             if(this.selected.points[0]==null) return false;
             var p1 = draft.objects.points[this.selected.points[0]]
             var p2 = this.selected.points[1];
@@ -126,7 +128,82 @@ function setupTools(){
             }
         }
     }//}}}
-    draft.activeTool = Tool('point');
+
+    draft.tools['circle'] = function(){//{{{
+        this.selected={"points":[null]};//[0] will be the point under the mouse, [1...] will be the actually selected points.
+        this.modes={
+            '2':'Center + Point on the circumference.',
+            '3':'3 Points on the circumference.'
+        }
+        this.mode = null;
+        this.setMode=function(newMode){
+            this.mode = newMode;
+            this.selected.points=[null];
+        }
+        this.move=function(e){
+            var start = this.selected.points[0]
+            this.selected.points[0] = select(draft);
+            return true;
+//            return start != this.selected.points[0];
+        }
+        this.down=function(e){
+            var mousePoint = this.selected.points[0]
+
+            if(mousePoint){
+                var selPos = this.selected.points.indexOf(mousePoint,1)
+                if(selPos == -1){
+                    this.selected.points.push(mousePoint)
+                }else{
+                    this.selected.points.splice(selPos,1)
+                }
+            }else{
+                this.selected.points.push(createPoint());
+            }
+            if(this.selected.points.length-1==this.mode)
+                this.finish()
+            return true;
+        }
+        this.draw=function(ctx){
+            if(this.selected.points.length!=this.mode)
+                return
+            var center,r;
+            switch(this.mode){
+                case '2':
+                    center = draft.objects.points[this.selected.points[1]];
+                    var p2 = draft;
+                    if(this.selected.points[0])
+                        p2 = draft.objects.points[this.selected.points[0]]
+                    r = dist(center,p2);
+                break;
+
+                case '3':
+                    var p3 = draft;
+                    if(this.selected.points[0])
+                        p3 = draft.objects.points[this.selected.points[0]];
+                    var p1 = draft.objects.points[this.selected.points[1]];
+                    var p2 = draft.objects.points[this.selected.points[2]];
+                    center = Center3PtCircle(p1,p2,p3);
+                    r = dist(p1,center)
+                break;
+            }
+            with(ctx){
+                if(this.selected.points[0]==null)
+                    strokeStyle = "rgb(255,255,255)";
+                else
+                    strokeStyle = "rgb(64,128,64)";
+                lineWidth=3; 
+                beginPath();
+                ctx.arc(center.x,center.y,r,0,Math.PI*2,true);
+                ctx.closePath()
+                ctx.stroke()
+            }
+
+        } 
+        this.finish=function(){
+            console.log("finish");
+            this.selected.points = [null];
+        }
+    }//}}}
 }
 
 
