@@ -3,15 +3,19 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     <script src="http://cdn.sockjs.org/sockjs-0.2.min.js" type="text/javascript"></script>
     <script src="http://threedubmedia.googlecode.com/files/jquery.event.drag-1.5.min.js" type="text/javascript"></script>
+    <script src="Prototypes.js" type="text/javascript"></script>
     <script src="global.js" type="text/javascript"></script>
     <script src="draft.js" type="text/javascript"></script>
     <script src="tools.js" type="text/javascript"></script>
     <script src="toolbox.js" type="text/javascript"></script>
-
+    <script type="text/javascript">
+        $(Toolbox.init);
+        $(draft.init);
+    </script>
     <link rel="stylesheet" type="text/css" media="screen" href="style.css">
     <link rel="stylesheet" type="text/css" media="screen" href="toolbox.css">
 </head>
-<body onload='init()'>
+<body >
     <canvas></canvas>
     <div id="toolbox">
         <div class="group iconbuttons">

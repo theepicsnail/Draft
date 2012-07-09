@@ -15,7 +15,6 @@ function dist(p1, p2){
     return Math.sqrt(dx*dx+dy*dy);
 }
 
-
 function selected(type, idx){
     var rt = false;
     try{
@@ -27,5 +26,25 @@ function selected(type, idx){
     }catch(err){}
     return rt;
 }
+
+
+
+function Slope(p1,p2){
+    return (p2.y-p1.y)/(p2.x-p1.x);
+}
+
+function Center3PtCircle(p1, p2, p3){
+    var mr = Slope(p1,p2);
+    var mt = Slope(p2,p3);
+    var x = (mr*mt*(p3.y-p1.y)+mr*(p2.x+p3.x)-mt*(p1.x+p2.x))/(2*(mr-mt))
+    var y = ((p1.x+p2.x)/2-x)/mr+(p2.y+p1.y)/2
+    return {'x':x, 'y':y}
+}
+
+
+
+
+
+
 
 
