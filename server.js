@@ -17,79 +17,218 @@ var port = process.argv[2] || 12346;
 
 var host = '0.0.0.0';
 
-var sockets = [];
-
-var objects = {'points':[], 'lines':[], 'circles':[]}
-
-function Point(x,y){
-    ret = new Object();
-    ret.x = x;
-    ret.y = y;
-    return ret;
-}
-function Line(p1, p2){
-    ret = new Object();
-    ret.p1 = p1;
-    ret.p2 = p2;
-    return ret;
-}
-function Circle(center, p2){
-    return Line(center, p2);
-}
-
-objects.points.push(Point(250,80));
-objects.points.push(Point(280,30));
-objects.points.push(Point(300,100));
-objects.lines.push(Line(0,1));
-objects.lines.push(Line(2,1));
-objects.lines.push(Line(0,2));
-objects.circles.push(Circle(0,1));
-
-
-var count = 0;
 var startTime = (new Date()).getTime();
-sockjs_server.on('connection', function(socket) {
-    sockets.push(socket);
-    socket.write(JSON.stringify({'type':'serverInfo', 'startTime':startTime}));
-    socket.write(JSON.stringify({'type':'sync','objects':objects,'users':sockets.length}));
-     
-    socket.on('data', function(message) {
-        function pushUpdate(){
-            for (var i in sockets){
-//                if (sockets[i] == socket) continue;
-                console.log("Pushing message:"+count);
-                count = count + 1;
-                sockets[i].write(
-                JSON.stringify(
-                    {'type':'sync','objects':objects,'users':sockets.length}
-                    ));
-            }
-        }
 
-        console.log(message);
-        var data = JSON.parse(message);
-        switch(data.type){
-        case 'update':
-            objects[data.object][data.id]=data.val
-        break;
-        case 'push':
-            objects[data.object].push(data.val)    
-        break;
-        }
-        pushUpdate();
+var sockets = {};
+
+var objects ={}
+
+var NEXT_SOCKET_ID = 1;
+
+var NEXT_OBJECT_ID = 1;
+
+function nextSocketID(){
+    return NEXT_SOCKET_ID ++;
+}
+function nextObjectID(){
+    return NEXT_OBJECT_ID ++;
+}
+function GeomObject(type, subtype, args){
+    return {
+        type:type,
+        subtype:subtype,
+        args: args,
+        parents: [],
+        children: [],
+        id: nextObjectID(),
+        held: false
+    }
+}
+function Link(parID, childID){
+    par = objects[parID]
+    child = objects[childID]
+    if(par===undefined || child===undefined)
+    {
+        console.log("Failed to link objects:")
+        console.log(par)
+        console.log(child)
+        return
+    }
+    par.children.push(childID)
+    child.parents.push(parID)
+}
+function remGeomObject(id){
+    var object = objects[id];
+    if(object == undefined)
+        return;
+
+    //Remove any reference to this object.
+    for(var i in object.parents){
+        var p = object.parents[i];
+        p.children.splice(p.children.indexOf(id),1);
+    }
         
+    //Clear out any children objects linked.
+    for(var i in object.children){
+        var c = object.children[i];
+        remGeomObject(c);
+    }
+
+    //Remove this object.
+    delete objects[id];
+}
+function addGeomObject(obj){
+    oldObj = objects[obj.id]
+    if(oldObj !== undefined)
+    {
+        console.log("Attempting to replace object: "+obj.id)
+        console.log("Old:")
+        console.log(oldObj)
+        console.log("New:")
+        conosle.log(obj)
+        return false
+    } 
+
+    objects[obj.id]=obj;
+    return obj.id
+}
+function addPoint(subType, args){
+    return addGeomObject(GeomObject(
+        'point', subType, args
+    ));
+}
+function addAbsolutePoint(x,y){
+    return addPoint('absolute', {x:x, y:y})
+}
+function addMidpoint(lineID){
+    return addPoint('midpoint', {line: lineID})
+}
+function addLine(subType, args){
+    return addGeomObject(GeomObject(
+        'line', subType, args
+    ));
+}
+function add2PointLine(p1ID, p2ID){
+    myID = addLine('2pt', {p1:p1ID, p2:p2ID})
+    if(myID == false)
+        return false
+
+    Link(p1ID,myID)
+    Link(p2ID,myID)
+    return myID;
+}
+function addParallelLine(lineID, ptID){
+    myID = addLine('par', {line: lineID, point:ptID})
+    if(myID == false)
+        return false
+    Link(lineID,myID)
+    Link(pointID,myID)
+    return myID
+}
+
+
+
+sockjs_server.on('connection', function(socket) {
+    var id = nextSocketID();
+    sockets[id] = socket;
+    sockets.count += 1;
+    
+    socket.on('data', function(message){
+        handleMessage(id, message);
     });
-    socket.on('end', function() {
-        var i = sockets.indexOf(socket)
-        sockets.splice(i,1)
+    
+    socket.on('end',function(){
+        delete sockets[id];
+        sockets.count -= 1;
     });
+    
+    socket.write(JSON.stringify({
+        'type':'sync',
+        'objects': objects,
+        'users': sockets.count,
+        'start': startTime
+    }));
 });
 
-setInterval(function(){
-    var message = JSON.stringify({'type':'stats','usercount':sockets.length});
-    for (var i in sockets){
-        sockets[i].write(message);
+function handleMessage(id, message){
+    var messageObject = JSON.parse(message);
+    var messageType = messageObject.Type;
+    var objectID = message.objectID;
+    var object = objects[objectID];
+
+    switch(messageType){
+        case 'grab':
+            if(object && object.held == false)
+            {
+                object.held = id;
+                publish({'type':'held' 
+                        ,'objectID':data.objectID
+                        ,'ownerID':id
+                        });
+            }
+        break;
+        case 'release':
+            if(object && object.held == id)
+            {
+                object.held = false;
+                publish({'type':'held'
+                        ,'objectID':data.objectID
+                        ,'ownerID':false
+                        });
+            }
+        break;
+        case 'move':
+            var pos = messageObject.pos;
+            if(object 
+            && object.held == id
+            && object.type == 'point' 
+            && object.subtype == 'absolute')
+            {
+                object.args.x = pos[0];
+                object.args.y = pos[1];
+
+                publish({'type':'pos'
+                        ,'objectID': objectID
+                        ,'pos': pos
+                        });
+            }
+        break;
+        case 'add':
+            var objtype = messageObject.objtype;
+            var subtype = messageObject.subtype;
+            var args = messageObjext.args;
+
+            var id = addGeomObject(GeomObject(
+                        objtype, subtype, args
+                     ));
+            if(objects[id])
+                publish({'type':'add'
+                        ,'object':objects[id]
+                        });
+        break;
+        case 'rem':
+            if(object
+            && object.held == id)
+            {
+                remGeomObject(objectID)
+                publish({'type':'rem'
+                        ,'objectID': objectID
+                        });
+            } 
+        break;
     }
+}
+
+function publish(message){
+    var msg = JSON.stringify(message);
+    for(var id in sockets){
+        sockets[id].write(msg);
+    }
+}
+
+setInterval(function(){
+    var message = JSON.stringify({'type':'stat','users':sockets.count});
+    publish(message)
 },10000)
 
 http_server.addListener('request', function(req, res) {
@@ -105,3 +244,7 @@ sockjs_server.installHandlers(http_server, {prefix:'/sjs'});
 http_server.listen(port, host);
 
 console.log('draft is listening on '+host+':'+port)
+
+p1 = addAbsolutePoint(100,100)
+p2 = addAbsolutePoint(200,150)
+l1 = add2PointLine(p1,p2)
